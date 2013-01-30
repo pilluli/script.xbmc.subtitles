@@ -38,7 +38,7 @@ def query_TvShow(name, season, episode, file_original_path, langs):
     searchurl = "%s/serie/%s/%s/%s/addic7ed" %(self_host, name, season, episode)
     if verbose:
         print 'ADDIC7ED: searchurl = |' + searchurl + '|'
-    socket.setdefaulttimeout(3)
+    socket.setdefaulttimeout(5)
     page = urllib2.urlopen(searchurl)
     content = page.read()
 
@@ -47,9 +47,11 @@ def query_TvShow(name, season, episode, file_original_path, langs):
         text_file.write(content)
         text_file.close()
 
-    content = content.replace('\n','')        
+    content = content.replace('\n','')
 
-    tables = content.split('<div id="container95m">')[1:-2]
+    tables = content.split('<div id="container95m">')[1:-1]
+    if verbose:
+        print 'ADDIC7ED: tables len = ' + str(len(tables))
 
     for t in tables:
 
@@ -57,7 +59,8 @@ def query_TvShow(name, season, episode, file_original_path, langs):
         try:
             subteams = re.search('<td colspan="3" align="center" class="NewsTitle"><img src="/images/folder_page.png" width="16" height="16" />.*Version (.+?), ([0-9]+).([0-9])+ MB.*',t,re.M).groups()[0]
         except:
-            # No subteams found, do nothing else
+            if verbose:
+                print 'ADDIC7ED: No subteams found, do nothing else'
             subteams = ''
             break
         if verbose:
