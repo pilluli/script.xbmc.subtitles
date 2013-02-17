@@ -47,7 +47,7 @@ from utilities import languageTranslate, log
 _ = sys.modules[ "__main__" ].__language__
 __scriptname__ = sys.modules[ "__main__" ].__scriptname__
 __addon__ = sys.modules[ "__main__" ].__addon__
-__cwd__        = sys.modules[ "__main__" ].__cwd__.decode('utf-8')
+__cwd__        = sys.modules[ "__main__" ].__cwd__
 __language__   = __addon__.getLocalizedString
 
 main_url = "http://www.legendas-zone.org/"
@@ -74,8 +74,16 @@ imdb_pattern = "<td class=\"result_text\"> <a\shref=\"\/title\/tt(.+?)\/\?"
 #====================================================================================================================
 # Functions
 #====================================================================================================================
+def _from_utf8(text):
+    if isinstance(text, str):
+        return text.decode('utf-8')
+    else:
+        return text
+
 def msgnote(site, text, timeout):
 	icon =  os.path.join(__cwd__,"icon.png")
+	text = _from_utf8(text)
+	site = _from_utf8(site)
 	xbmc.executebuiltin((u"Notification(%s,%s,%i,%s)" % (site, text, timeout, icon)).encode("utf-8"))
 
 def getallsubs(searchstring, languageshort, languagelong, file_original_path, subtitles_list, searchstring_notclean):
