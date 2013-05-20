@@ -1,6 +1,7 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
 
 import os, sys, re, xbmc, xbmcgui, string, time, urllib, urllib2
+import difflib
 from utilities import languageTranslate, log
 
 main_url = "http://v2.subscene.com/"
@@ -48,7 +49,7 @@ subtitle_pattern = "..<tr>.{5}<td>.{6}<a class=\"a1\" href=\"/([^\n\r]{10,200}?-
 				Inception (2010) 
 				<dfn>(327)</dfn>
 """
-movie_season_pattern = "...<a href=\"([^\n\r\t]*?/subtitles-\d{1,10}.aspx)\".{1,14}>\r\n{0,3}.{4}([^\n\r\t\&#]*?) \((\d\d\d\d)\) \r\n{0,3}.{1,4}<dfn>\(.{1,5}</dfn>"
+movie_season_pattern = "...<a href=\"([^\n\r\t]*?/subtitles-\d{1,10}.aspx)\".{1,14}>\r\n{0,3}.{4}([^\n\r\t\&#]*?) \((\d\d\d\d)\) \r\n{0,3}.{1,4}<dfn>\((.{1,5})\)</dfn>"
 # group(1) = link, group(2) = movie_season_title,  group(3) = year
 
 
@@ -104,13 +105,29 @@ def find_movie(content, title, year):
 
 def find_tv_show_season(content, tvshow, season):
     url_found = None
+    possible_matches = []
+    all_tvshows = []
+
     for matches in re.finditer(movie_season_pattern, content, re.IGNORECASE | re.DOTALL):
-        log( __name__ ,"%s Found tv show season on search page: %s" % (debug_pretext, matches.group(2).decode("utf-8")))
+        #log( __name__ ,"%s Found tv show season on search page: %s" % (debug_pretext, matches.group(2).decode("utf-8")))
+        s = difflib.SequenceMatcher(None, string.lower(matches.group(2) + ' ' + matches.group(3)), string.lower(tvshow))
+        all_tvshows.append(matches.groups() + (s.ratio() * int(matches.group(4)),))
+
         if string.find(string.lower(matches.group(2)),string.lower(tvshow) + " ") > -1:
             if string.find(string.lower(matches.group(2)),string.lower(season)) > -1:
                 log( __name__ ,"%s Matching tv show season found on search page: %s" % (debug_pretext, matches.group(2).decode("utf-8")))
-                url_found = matches.group(1)
-                break
+                possible_matches.append(matches.groups())
+
+    if len(possible_matches) > 0:
+        possible_matches = sorted(possible_matches, key=lambda x: -int(x[3]))
+        url_found = possible_matches[0][0]
+        log( __name__ ,"%s Selecting matching tv show with most subtitles: %s (%s)" % (debug_pretext, possible_matches[0][1].decode("utf-8"), possible_matches[0][3].decode("utf-8")))
+    else:
+        if len(all_tvshows) > 0:
+            all_tvshows = sorted(all_tvshows, key=lambda x: -int(x[4]))
+            url_found = all_tvshows[0][0]
+            log( __name__ ,"%s Selecting tv show with highest fuzzy string score: %s (score: %s subtitles: %s)" % (debug_pretext, all_tvshows[0][1].decode("utf-8"), all_tvshows[0][4], all_tvshows[0][3].decode("utf-8")))
+
     return url_found
 
 
@@ -150,6 +167,8 @@ def geturl(url):
 
 
 def search_subtitles( file_original_path, title, tvshow, year, season, episode, set_temp, rar, lang1, lang2, lang3, stack ): #standard input
+    log( __name__ ,"%s Search_subtitles = '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'" % 
+         (debug_pretext, file_original_path, title, tvshow, year, season, episode, set_temp, rar, lang1, lang2, lang3, stack))
     subtitles_list = []
     msg = ""
     if len(tvshow) == 0:
@@ -263,39 +282,25 @@ def download_subtitles (subtitles_list, pos, zip_subs, tmp_sub_dir, sub_folder, 
         except:
             log( __name__ ,"%s Failed to save subtitle to %s" % (debug_pretext, local_tmp_file))
         if packed:
-            files = os.listdir(tmp_sub_dir)
-            init_filecount = len(files)
-            max_mtime = 0
-            filecount = init_filecount
-            # determine the newest file from tmp_sub_dir
-            for file in files:
-                if (string.split(file,'.')[-1] in ['srt','sub','txt']):
-                    mtime = os.stat(os.path.join(tmp_sub_dir, file)).st_mtime
-                    if mtime > max_mtime:
-                        max_mtime =  mtime
-            init_max_mtime = max_mtime
-            time.sleep(2)  # wait 2 seconds so that the unpacked files are at least 1 second newer
+            files_before = os.listdir(tmp_sub_dir)
+            filecount = init_filecount = len(files_before)
             xbmc.executebuiltin("XBMC.Extract(" + local_tmp_file + "," + tmp_sub_dir +")")
+            files_after = os.listdir(tmp_sub_dir)
+            filecount = len(files_after)
             waittime  = 0
-            while (filecount == init_filecount) and (waittime < 20) and (init_max_mtime == max_mtime): # nothing yet extracted
-                time.sleep(1)  # wait 1 second to let the builtin function 'XBMC.extract' unpack
-                files = os.listdir(tmp_sub_dir)
-                filecount = len(files)
-                # determine if there is a newer file created in tmp_sub_dir (marks that the extraction had completed)
-                for file in files:
-                    if (string.split(file,'.')[-1] in ['srt','sub','txt']):
-                        mtime = os.stat(os.path.join(tmp_sub_dir, file)).st_mtime
-                        if (mtime > max_mtime):
-                            max_mtime =  mtime
+            while (filecount == init_filecount) and (waittime < 200):
+                files_after = os.listdir(tmp_sub_dir)
+                filecount = len(files_after)
                 waittime  = waittime + 1
-            if waittime == 20:
+                log( __name__ ,"%s Wait time is '%s'" % (debug_pretext, waittime))
+                time.sleep(0.1)  # wait 0.1 second to let the builtin function 'XBMC.extract' unpack
+            if waittime == 200:
                 log( __name__ ,"%s Failed to unpack subtitles in '%s'" % (debug_pretext, tmp_sub_dir))
             else:
                 log( __name__ ,"%s Unpacked files in '%s'" % (debug_pretext, tmp_sub_dir))
-                for file in files:
-                    # there could be more subtitle files in tmp_sub_dir, so make sure we get the newly created subtitle file
-                    if (string.split(file, '.')[-1] in ['srt', 'sub', 'txt']) and (os.stat(os.path.join(tmp_sub_dir, file)).st_mtime > init_max_mtime): # unpacked file is a newly created subtitle file
-                        log( __name__ ,"%s Unpacked subtitles file '%s'" % (debug_pretext, file))
-                        subs_file = os.path.join(tmp_sub_dir, file)
+                for new_file in set(files_after) - set(files_before):
+                    if string.split(new_file, '.')[-1] in ['srt', 'sub', 'txt']:
+                        subs_file = os.path.join(tmp_sub_dir, new_file)
+                        break
         log( __name__ ,"%s Subtitles saved to '%s'" % (debug_pretext, local_tmp_file))
         return False, language, subs_file #standard output
