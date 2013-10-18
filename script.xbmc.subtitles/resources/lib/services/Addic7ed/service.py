@@ -96,14 +96,24 @@ def query_TvShow(name, season, episode, file_original_path, langs):
 
             # if subteams is in the filename hash it!
             file_name = os.path.basename(file_original_path).lower()
-            hstr = subteams + '-' + info_html
+            hstr = subteams.lower() + '-' + info_html.lower()
+            if verbose:
+                print 'ADDIC7ED: file_name = |' + file_name + '|'
+                print 'ADDIC7ED: hstr = |' + hstr + '|'
             hashed = False
             try:
-                for ss in hstr.replace('.','-').split('-'):
-                    if ss.find('720p') == -1:
-                        if ss.find('1080') == -1:
-                            if file_name.find(str(ss)) > -1:
-                                hashed = True
+                for ss in hstr.replace('.','-').replace(',','-').replace(' ','-').split('-'):
+                    s3 = ss.strip()
+                    if len(s3)>1:
+                        if s3.find('720p') == -1:
+                            if s3.find('1080') == -1:
+                                if s3.find('should') == -1:
+                                    if s3.find('work') == -1:
+                                        if s3.find('with') == -1:
+                                            if file_name.find(str(s3)) > -1:
+                                                hashed = True
+                                                if verbose:
+                                                    print 'ADDIC7ED: found s3 = |' + s3 + '| in file_name'
             except:
                 pass
 
