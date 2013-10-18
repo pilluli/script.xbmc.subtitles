@@ -81,7 +81,7 @@ def query_TvShow(name, season, episode, file_original_path, langs):
             wrong = False
 
             try:
-                fullLanguage = re.search('class="language">(.+?)&nbsp;<a',l,re.M).groups()[0].replace('\n','')
+                fullLanguage = re.search('class="language">(.+?)<a',l,re.M).groups()[0].replace('\n','')
             except:
                 fullLanguage = ''
                 wrong = True
@@ -96,9 +96,10 @@ def query_TvShow(name, season, episode, file_original_path, langs):
 
             # if subteams is in the filename hash it!
             file_name = os.path.basename(file_original_path).lower()
+            hstr = subteams + '-' + info_html
             hashed = False
             try:
-                for ss in subteams.replace('.','-').split('-'):
+                for ss in hstr.replace('.','-').split('-'):
                     if ss.find('720p') == -1:
                         if ss.find('1080') == -1:
                             if file_name.find(str(ss)) > -1:
@@ -106,9 +107,16 @@ def query_TvShow(name, season, episode, file_original_path, langs):
             except:
                 pass
 
+            if verbose:
+                if hashed:
+                    print 'ADDIC7ED: hasdhed = TRUE'
+                else:
+                    print 'ADDIC7ED: hasdhed = FALSE'
+
+
             # Get status
             try:
-                status = re.search('<td width="19%"><b>(.+?)</b>',l).groups()[0]
+                status = re.search('<td width="19%"><b>(.+?)</b>',l).groups()[0].strip()
             except:
                 status = ''
       
@@ -123,8 +131,8 @@ def query_TvShow(name, season, episode, file_original_path, langs):
 
             # Get link (try most updated first)
             try:
-                if re.search('</strong></a> <a class="buttonDownload" href="(.+?)"><strong>most updated',l,re.M):
-                    link = re.search('</strong></a> <a class="buttonDownload" href="(.+?)"><strong>most updated',l,re.M).groups()[0]
+                if re.search('</strong></a>.*<a class="buttonDownload" href="(.+?)"><strong>most updated',l,re.M):
+                    link = re.search('</strong></a>.*<a class="buttonDownload" href="(.+?)"><strong>most updated',l,re.M).groups()[0]
                 else:
                     link = re.search('<a class="buttonDownload" href="(.+?)"><strong>',l,re.M).groups()[0]
                     
